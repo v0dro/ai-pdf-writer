@@ -8,7 +8,6 @@ processor = LayoutLMv3Processor(feature_extractor, tokenizer)
 pdf_images = convert_from_path("letter_of_guarantee.pdf")
 
 for image in pdf_images:
-    image.save("le.png")
     encoding = processor(
         image,
         max_length=1024,
@@ -16,6 +15,9 @@ for image in pdf_images:
         truncation=True,
         return_tensors="pt"
     )
-
     print(encoding.keys())
+    features = feature_extractor(image)
+
+    print(features['pixel_values'][0].shape)
+    print(features.keys())
 
