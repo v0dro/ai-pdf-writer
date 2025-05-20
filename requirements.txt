@@ -1,4 +1,5 @@
 torch
 pdf2image
 pytesseract
+opencv-python
 transformers
