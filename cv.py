@@ -23,7 +23,7 @@ _, thresh = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY_INV)
 # cv2.imwrite("thresh.png", thresh)
 
 blur = cv2.GaussianBlur(thresh,(5,5), 0)
-cv2.imwrite("thresh.png", img)
+cv2.imwrite("thresh.png", thresh)
 
 import pytesseract
 from PIL import Image, ImageDraw
@@ -50,3 +50,4 @@ for i in range(len(data['text'])):
         draw.rectangle([(x, y), (x + w, y + h)], outline="red", width=2)
 
 image.show()
+image.save("output_with_bboxes.png")
