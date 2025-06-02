@@ -24,7 +24,7 @@ def combine_rectangles(loc, h, w):
         x = pt[1]
 
         if y != start_y:
-            combined.append((start_y, start_x, h, width))
+            combined.append((start_y, start_x, h, width+20))
             in_rect = False
             continue
 
@@ -36,7 +36,7 @@ def combine_rectangles(loc, h, w):
             in_rect = False
         prev_x = x
 
-    combined.append((start_y, start_x, h, width))
+    combined.append((start_y, start_x, h, width+20))
 
     # Return a list with tuples (x, y, w, h) for each combined rectangle.
     return combined
@@ -47,37 +47,28 @@ h, w = template.shape[::-1]
 # The x-coordinates increase to the right, and the y-coordinates increase downwards.
 res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
 threshold = 0.9
-#1115-1027
 
 # Therefore, the locations here are a 2D array where the rows indicate the
 # y-coordinates and the columns indicate the x-coordinates.
 loc = np.where(res >= threshold)
-# for pt in zip(*loc):  # Switch columns and rows
-#     print("x:", pt[0], "y:", pt[1], "w:", w, "h:", h)
-#     cv2.rectangle(img, (pt[1], pt[0]), (pt[1] + h, pt[0] + w), (0, 255, 0), 2)
-#cv2.rectangle(img, (507, 1317), (507 +550, 1317 + h), (0, 255, 0), 2)
 combined_rectangles = combine_rectangles(loc, h, w)
 print(combined_rectangles)
 
 for pt in combined_rectangles:  # Switch columns and rows
-    # print("x:", pt[0], "y:", pt[1], "w:", w, "h:", h)
-    cv2.rectangle(img, (pt[1], pt[0]), (pt[1] + pt[3], pt[0] + pt[2]), (0, 255, 0), 2)
-
+    #cv2.rectangle(img, (pt[1], pt[0]-12), (pt[1] + pt[3], pt[0] -12 + pt[2]), (0, 255, 0), 2)
+    cv2.putText(img, "BLANK" , (pt[1]+20, pt[0]+h-20), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, 
+                cv2.LINE_AA)
 h2, w2 = template2.shape[::-1]
 
 print("next template")
 res2 = cv2.matchTemplate(img, template2, cv2.TM_CCOEFF_NORMED)
 loc2 = np.where(res2 >= threshold)
-# for pt in zip(*loc2[::-1]):  # Switch columns and rows
-#     #print("x:", pt[0], "y:", pt[1], "w:", w2, "h:", h2)
-#     cv2.rectangle(img, pt, (pt[0] + w2, pt[1] + h2), (0, 255, 0), 2)
-
 combined_rectangles = combine_rectangles(loc2, h, w2)
-print(combined_rectangles)
 
 for pt in combined_rectangles:  # Switch columns and rows
-    # print("x:", pt[0], "y:", pt[1], "w:", w, "h:", h)
-    cv2.rectangle(img, (pt[1], pt[0]), (pt[1] + pt[3], pt[0] + pt[2]), (0, 255, 0), 2)
-
-
+    #cv2.rectangle(img, (pt[1], pt[0]-14), (pt[1] + pt[3], pt[0] -14+ pt[2]), (0, 255, 0), 2)
+    cv2.putText(img, "BLANK" , (pt[1]+20, pt[0]+h-20), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, 
+                cv2.LINE_AA)
 cv2.imwrite("result1.png", img)
