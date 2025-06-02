@@ -71,4 +71,5 @@ for pt in combined_rectangles:  # Switch columns and rows
     cv2.putText(img, "BLANK" , (pt[1]+20, pt[0]+h-20), 
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, 
                 cv2.LINE_AA)
+
 cv2.imwrite("result1.png", img)
