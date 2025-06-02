@@ -1,36 +1,29 @@
 from transformers import LayoutLMv3Processor, LayoutLMv3FeatureExtractor, \
     LayoutLMv3TokenizerFast, LayoutLMv3ForTokenClassification
-from PIL import Image
+from PIL import Image, ImageOps 
 from pdf2image import convert_from_path
 import cv2
 import pprint
 
-# model_name = "nielsr/layoutlmv3-finetuned-funsd"
-model_name = "nielsr/layoutlmv3-funsd-v2"
+model_name = "nielsr/layoutlmv3-finetuned-funsd"
+# model_name = "nielsr/layoutlmv3-funsd-v2"
+# model_name = "microsoft/layoutlmv3-base"
 feature_extractor = LayoutLMv3FeatureExtractor(
     apply_ocr=True, ocr_lang="eng",
     tesseract_config="--psm 6")
-tokenizer = LayoutLMv3TokenizerFast.from_pretrained("nielsr/layoutlmv3-finetuned-funsd")
+tokenizer = LayoutLMv3TokenizerFast.from_pretrained(model_name)
 # This is used for extracting text from an image of the PDF. It uses an OCR underneath
 # and does not have any connection to the model.
-processor = LayoutLMv3Processor.from_pretrained("nielsr/layoutlmv3-finetuned-funsd")
+processor = LayoutLMv3Processor.from_pretrained(model_name)
 model = LayoutLMv3ForTokenClassification.from_pretrained(model_name)
 
-# image.save("letter_of_guarantee.png", "PNG")
-# gray = cv2.cvtColor(cv2.imread("letter_of_guarantee.png"), cv2.COLOR_BGR2GRAY)
-# _, thresh = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
-# cv2.imwrite("processed_output.png", thresh)
-new_image = Image.open("result1.png")
-# new_image = Image.open("processed_output.png")
-# new_image = new_image.convert("RGB")
+new_image = Image.open("result1.png").convert("RGB")
 encoding = processor(
     new_image,
     max_length=1024,
-    #padding="max_length",
     truncation=True,
     return_tensors="pt"
 )
-print(encoding.keys())
 features = feature_extractor(new_image)
 
 print(features['pixel_values'][0].shape)
