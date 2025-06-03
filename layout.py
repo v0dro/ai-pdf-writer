@@ -1,5 +1,5 @@
 from transformers import LayoutLMv3Processor, LayoutLMv3FeatureExtractor, \
-    LayoutLMv3TokenizerFast, LayoutLMv3ForTokenClassification
+    LayoutLMv3TokenizerFast, LayoutLMv3ForTokenClassification,  LayoutLMv3ImageProcessor
 from PIL import Image, ImageOps 
 from pdf2image import convert_from_path
 import cv2
@@ -16,8 +16,14 @@ tokenizer = LayoutLMv3TokenizerFast.from_pretrained(model_name)
 # and does not have any connection to the model.
 processor = LayoutLMv3Processor.from_pretrained(model_name)
 model = LayoutLMv3ForTokenClassification.from_pretrained(model_name)
+image_processor =  LayoutLMv3ImageProcessor(
+    apply_ocr=True,
+    ocr_lang="eng",
+    tesseract_config="--psm 6")
 
 new_image = Image.open("result1.png").convert("RGB")
+processed_image = image_processor.preprocess(new_image)
+
 encoding = processor(
     new_image,
     max_length=1024,
