@@ -56,7 +56,7 @@ print(combined_rectangles)
 
 for pt in combined_rectangles:  # Switch columns and rows
     #cv2.rectangle(img, (pt[1], pt[0]-12), (pt[1] + pt[3], pt[0] -12 + pt[2]), (0, 255, 0), 2)
-    cv2.putText(img, "BLANK" , (pt[1]+20, pt[0]+h-20), 
+    cv2.putText(img, "$Blank$" , (pt[1]+20, pt[0]+h-20), 
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, 
                 cv2.LINE_AA)
 h2, w2 = template2.shape[::-1]
@@ -68,7 +68,7 @@ combined_rectangles = combine_rectangles(loc2, h, w2)
 
 for pt in combined_rectangles:  # Switch columns and rows
     #cv2.rectangle(img, (pt[1], pt[0]-14), (pt[1] + pt[3], pt[0] -14+ pt[2]), (0, 255, 0), 2)
-    cv2.putText(img, "BLANK" , (pt[1]+20, pt[0]+h-20), 
+    cv2.putText(img, "$Blank$" , (pt[1]+20, pt[0]+h-20), 
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, 
                 cv2.LINE_AA)
 
