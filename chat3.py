@@ -19,6 +19,11 @@ class FormField:
     completed: bool = False
     value: Any = None
     attempts: int = 0
+    validation_history: List[str] = None  # Track validation attempts
+    
+    def __post_init__(self):
+        if self.validation_history is None:
+            self.validation_history = []
 
 class FormFillingChatbot:
     def __init__(self, tools_json: List[Dict], model_name: str = "llama3.2:3b"):
@@ -71,44 +76,54 @@ Be warm, professional, and helpful. Keep your responses concise but friendly."""
         
         return fields
 
-    def _create_field_prompt(self, field: FormField) -> str:
+    def _create_field_prompt(self, field: FormField, is_retry: bool = False) -> str:
         """Create a natural prompt for asking about a specific field."""
-        prompts = {
-            "date": f"First, could you tell me today's date? (Please provide it in YYYY-MM-DD format)",
-            "nationality": f"What is your nationality (country of citizenship)?",
-            "name": f"May I have your full name, please?",
-            "guarantor.name": f"Now I need some information about your guarantor. What is your guarantor's full name?",
-            "guarantor.address_in_japan": f"What is your guarantor's address in Japan?",
-            "guarantor.guarantor_phone_number": f"What is your guarantor's phone number in Japan?",
-            "guarantor.place_of_employment": f"Where does your guarantor work?",
-            "guarantor.occupation_phone_number": f"What is the phone number of your guarantor's workplace?",
-            "guarantor.nationality": f"What is your guarantor's nationality?",
-            "guarantor.status_of_residence": f"What is your guarantor's status of residence in Japan?",
-            "guarantor.period_of_stay": f"What is your guarantor's period of stay? (This is needed if they are not a Japanese citizen)",
-            "guarantor.guarantor_relationship": f"What is your relationship to the guarantor?"
+        base_prompts = {
+            "date": "First, could you tell me today's date?",
+            "nationality": "What is your nationality (country of citizenship)?",
+            "name": "May I have your full name, please?",
+            "guarantor.name": "Now I need some information about your guarantor. What is your guarantor's full name?",
+            "guarantor.address_in_japan": "What is your guarantor's address in Japan?",
+            "guarantor.guarantor_phone_number": "What is your guarantor's phone number in Japan?",
+            "guarantor.place_of_employment": "Where does your guarantor work?",
+            "guarantor.occupation_phone_number": "What is the phone number of your guarantor's workplace?",
+            "guarantor.nationality": "What is your guarantor's nationality?",
+            "guarantor.status_of_residence": "What is your guarantor's status of residence in Japan?",
+            "guarantor.period_of_stay": "What is your guarantor's period of stay? (This is needed if they are not a Japanese citizen)",
+            "guarantor.guarantor_relationship": "What is your relationship to the guarantor?"
         }
         
         # Create field key from path
         field_key = ".".join(field.path)
-        return prompts.get(field_key, f"Could you provide {field.description}?")
+        base_prompt = base_prompts.get(field_key, f"Could you provide {field.description}?")
+        
+        if is_retry and field.validation_history:
+            # Use LLM to create a contextual retry prompt
+            return self._generate_retry_prompt(field, base_prompt)
+        
+        return base_prompt
 
-    def _get_llm_response(self, user_input: str, current_field: FormField) -> str:
-        """Get a response from the LLM for processing user input."""
-        # Build conversation context
+    def _generate_retry_prompt(self, field: FormField, base_prompt: str) -> str:
+        """Use LLM to generate a natural retry prompt based on validation history."""
+        last_attempt = field.validation_history[-1] if field.validation_history else ""
+        
+        retry_context = f"""The user provided an invalid response for {field.name} ({field.description}).
+Their last attempt was: "{last_attempt}"
+Field type: {field.field_type}
+Original question: {base_prompt}
+
+Generate a friendly, helpful message that:
+1. Acknowledges their attempt
+2. Explains what was wrong (be specific)
+3. Provides a clear example of what you need
+4. Re-asks the question
+
+Keep it conversational and helpful, not robotic."""
+
         messages = [
-            {"role": "system", "content": self.system_prompt}
+            {"role": "system", "content": "You are a helpful form assistant. Create natural, friendly messages to help users correct their inputs."},
+            {"role": "user", "content": retry_context}
         ]
-        
-        # Add conversation history (last 5 exchanges)
-        for msg in self.conversation_history[-10:]:
-            messages.append(msg)
-        
-        # Add current interaction
-        messages.append({"role": "user", "content": user_input})
-        
-        # Add context about what we're looking for
-        context = f"\n\nContext: We are collecting '{current_field.name}' - {current_field.description}"
-        messages.append({"role": "system", "content": context})
         
         try:
             response = self.client.chat(
@@ -116,55 +131,43 @@ Be warm, professional, and helpful. Keep your responses concise but friendly."""
                 messages=messages
             )
             return response['message']['content']
-        except Exception as e:
-            print(f"Error calling Ollama: {e}")
-            return self._get_fallback_response(user_input, current_field)
+        except:
+            # Fallback retry message
+            return f"I'm sorry, but '{last_attempt}' doesn't seem to be valid for {field.name}. {base_prompt}"
 
-    def _get_fallback_response(self, user_input: str, current_field: FormField) -> str:
-        """Fallback response if LLM fails."""
-        return f"Thank you! I've noted that your {current_field.name} is '{user_input}'."
+    def _validate_with_llm(self, value: str, field: FormField) -> Tuple[bool, str, Optional[str]]:
+        """
+        Use LLM to validate the input and extract clean data.
+        Returns: (is_valid, cleaned_value, error_explanation)
+        """
+        validation_prompt = f"""You are validating user input for a form field.
 
-    def _validate_field(self, value: str, field: FormField) -> Tuple[bool, Optional[str]]:
-        """Validate field input and return (is_valid, error_message)."""
-        if not value.strip():
-            return False, "This field cannot be empty. Could you please provide this information?"
-        
-        if field.field_type == "date":
-            try:
-                datetime.strptime(value.strip(), "%Y-%m-%d")
-                return True, None
-            except ValueError:
-                return False, "Please provide the date in YYYY-MM-DD format (e.g., 2024-01-15)."
-        
-        # For phone numbers, do basic validation
-        if "phone" in field.name.lower():
-            cleaned = re.sub(r'[\s\-\(\)]', '', value)
-            # Remove spaces and hyphens
-            if cleaned.startswith("+81"):
-                cleaned = cleaned[3:]
-            if cleaned.startswith("81"):
-                cleaned = cleaned[2:]
-            if cleaned.startswith("0") and len(cleaned) == 11:
-                cleaned = cleaned[1:]
+Field: {field.name}
+Field Type: {field.field_type}
+Description: {field.description}
+User Input: "{value}"
 
-            # Check if it's a 10-digit number or a 9-digit number with +81 prefix
-            if not cleaned.isdigit() or len(cleaned) != 10:
-                return False, f"Please provide a valid Japanese phone number with 10 digits in the format xxx-xxxx-xxx OR a 9 digit number in the format +81 xx-xxxx-xxxx. {cleaned}"
-        
-        # For other fields, just ensure they're not empty
-        return True, None
+Your task:
+1. Check if the input is valid for this field type
+2. Extract and clean the relevant information
+3. If invalid, explain what's wrong
 
-    def _extract_value_with_llm(self, user_input: str, field: FormField) -> str:
-        """Use LLM to extract the relevant value from user input."""
-        extraction_prompt = f"""From the following user input, extract only the {field.description}.
-User input: "{user_input}"
-Field we're looking for: {field.name} ({field.description})
+For validation rules:
+- Names should be full names (at least first and last name)
+- Empty or too short responses are invalid
+- Check the description of the field for specific requirements
 
-Return ONLY the extracted value, nothing else."""
+Respond in JSON format:
+{{
+    "is_valid": true/false,
+    "cleaned_value": "the extracted and cleaned value",
+    "error_explanation": "explanation if invalid, null if valid",
+    "suggestions": "helpful suggestions for the user if invalid"
+}}"""
 
         messages = [
-            {"role": "system", "content": "You are a data extraction assistant. Extract only the requested information from user input."},
-            {"role": "user", "content": extraction_prompt}
+            {"role": "system", "content": "You are a form validation assistant. Validate inputs and provide helpful feedback."},
+            {"role": "user", "content": validation_prompt}
         ]
         
         try:
@@ -172,10 +175,96 @@ Return ONLY the extracted value, nothing else."""
                 model=self.model_name,
                 messages=messages
             )
-            return response['message']['content'].strip()
+
+            print("messages: ", messages)
+            print(response)
+            
+            # Parse the JSON response
+            try:
+                result = json.loads(response['message']['content'])
+                print(result)
+                return (
+                    result.get('is_valid', False),
+                    result.get('cleaned_value', value),
+                    result.get('error_explanation')
+                )
+            except json.JSONDecodeError:
+                # If LLM doesn't return valid JSON, fall back to basic validation
+                return self._basic_validation(value, field)
+                
+        except Exception as e:
+            print(f"LLM validation error: {e}")
+            return self._basic_validation(value, field)
+
+    def _basic_validation(self, value: str, field: FormField) -> Tuple[bool, str, Optional[str]]:
+        """Fallback validation if LLM fails."""
+        if not value.strip():
+            return False, value, "This field cannot be empty."
+        
+        if field.field_type == "date":
+            try:
+                datetime.strptime(value.strip(), "%Y-%m-%d")
+                return True, value.strip(), None
+            except ValueError:
+                return False, value, "Please use YYYY-MM-DD format (e.g., 2024-12-17)"
+        
+        if "phone" in field.name.lower():
+            cleaned = re.sub(r'[\s\-\(\)]', '', value)
+            if not cleaned.isdigit() or len(cleaned) < 10:
+                return False, value, "Phone numbers need at least 10 digits"
+        
+        return True, value.strip(), None
+
+    def _create_validation_response(self, field: FormField, error_explanation: str, user_input: str) -> str:
+        """Use LLM to create a natural response for validation errors."""
+        context = f"""The user provided invalid input for a form field.
+
+Field: {field.name} ({field.description})
+User said: "{user_input}"
+Problem: {error_explanation}
+This is attempt #{field.attempts + 1}
+
+Create a friendly, helpful response that:
+1. Acknowledges what they said
+2. Explains the issue clearly
+3. Provides a specific example
+4. Re-asks the question naturally
+
+Be conversational and patient. If this is their 3rd+ attempt, be extra helpful with examples."""
+
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": context}
+        ]
+        
+        try:
+            response = self.client.chat(
+                model=self.model_name,
+                messages=messages
+            )
+            return response['message']['content']
         except:
-            # Fallback: return the original input
-            return user_input.strip()
+            # Fallback response
+            example = self._get_field_example(field)
+            return f"I see you entered '{user_input}', but {error_explanation} Could you try again? {example}"
+
+    def _get_field_example(self, field: FormField) -> str:
+        """Get an example for a field."""
+        examples = {
+            "date": "For example: 2024-12-17",
+            "nationality": "For example: Japan, United States, Canada",
+            "name": "For example: Taro Yamada",
+            "phone": "For example: 090-1234-5678 or 03-1234-5678",
+            "address": "For example: 1-2-3 Shibuya, Shibuya-ku, Tokyo 150-0002",
+            "status_of_residence": "For example: Permanent Resident, Student, Engineer",
+            "period_of_stay": "For example: 3 years, Until 2025-12-31"
+        }
+        
+        for key, example in examples.items():
+            if key in field.name.lower() or key in field.description.lower():
+                return example
+        
+        return ""
 
     def _store_value(self, field: FormField, value: str):
         """Store the validated value in the nested structure."""
@@ -195,7 +284,9 @@ Return ONLY the extracted value, nothing else."""
     def start_conversation(self) -> str:
         """Start the conversation."""
         greeting = """Hello! I'm here to help you fill out a letter of guarantee form. 
-I'll guide you through each field step by step. Let's begin!"""
+I'll guide you through each field step by step. Don't worry if you make a mistake - I'll help you correct it!
+
+Let's begin!"""
         
         # Get the first field prompt
         if self.fields:
@@ -213,27 +304,36 @@ I'll guide you through each field step by step. Let's begin!"""
         
         current_field = self.fields[self.current_field_index]
         
-        # Extract value using LLM
-        extracted_value = self._extract_value_with_llm(user_input, current_field)
+        # Add to validation history
+        current_field.validation_history.append(user_input)
         
-        # Validate the extracted value
-        is_valid, error_message = self._validate_field(extracted_value, current_field)
+        # Validate using LLM
+        is_valid, cleaned_value, error_explanation = self._validate_with_llm(user_input, current_field)
         
         if not is_valid:
             current_field.attempts += 1
-            if current_field.attempts > 2:
-                # After 3 attempts, be more helpful
-                return f"{error_message}\n\nLet me help you. {self._create_field_prompt(current_field)}", False
-            return error_message, False
+            
+            # Create a natural validation response
+            validation_response = self._create_validation_response(
+                current_field, 
+                error_explanation or "The input doesn't seem correct", 
+                user_input
+            )
+            
+            # Update conversation history
+            self.conversation_history.append({"role": "user", "content": user_input})
+            self.conversation_history.append({"role": "assistant", "content": validation_response})
+            
+            return validation_response, False
         
-        # Store the value
-        self._store_value(current_field, extracted_value)
+        # Store the cleaned value
+        self._store_value(current_field, cleaned_value)
         
         # Update conversation history
         self.conversation_history.append({"role": "user", "content": user_input})
         
-        # Get acknowledgment from LLM
-        acknowledgment = self._get_llm_response(user_input, current_field)
+        # Generate acknowledgment
+        acknowledgment = self._generate_acknowledgment(current_field, cleaned_value)
         self.conversation_history.append({"role": "assistant", "content": acknowledgment})
         
         # Move to next field
@@ -255,6 +355,36 @@ I'll guide you through each field step by step. Let's begin!"""
                 return f"{acknowledgment}{transition}\n\n{next_prompt}", False
         
         return f"{acknowledgment}\n\n{next_prompt}", False
+
+    def _generate_acknowledgment(self, field: FormField, value: str) -> str:
+        """Generate a natural acknowledgment using LLM."""
+        context = f"""The user just provided valid information for a form field.
+
+Field: {field.name} ({field.description})
+Value provided: {value}
+Field type: {field.field_type}
+
+Generate a brief, friendly acknowledgment that:
+1. Confirms you received the information
+2. Sounds natural and conversational
+3. Varies based on the type of information
+
+Keep it short and friendly. Don't repeat the exact value unless it adds value."""
+
+        messages = [
+            {"role": "system", "content": "You are a friendly form assistant. Acknowledge user inputs naturally and briefly."},
+            {"role": "user", "content": context}
+        ]
+        
+        try:
+            response = self.client.chat(
+                model=self.model_name,
+                messages=messages
+            )
+            return response['message']['content']
+        except:
+            # Fallback acknowledgments
+            return f"Thank you! I've recorded that."
 
     def _create_summary(self) -> str:
         """Create a summary of collected information."""
@@ -288,7 +418,7 @@ I'll guide you through each field step by step. Let's begin!"""
         """Return the collected data as a dictionary."""
         return self.collected_data
 
-# Example usage
+# Example usage with simulated validation scenarios
 def main():
     # The provided tools JSON
     tools = [{
@@ -297,11 +427,11 @@ def main():
         "parameters": {
             "date": {
                 "type": "date",
-                "description": "The date on which the user is filling this form. The date format can be whatever the user prefers, but return it in YYYY-MM-DD format."
+                "description": "The date on which you are filling this form. The date format entered by the user can be whatever the user prefers, but you as the assistant MUST clean it and return it in YYYY-MM-DD format."
             },
             "nationality": {
                 "type": "string",
-                "description": "The name of the country of citizenship of the user. Validate the user input against a list of countries and "
+                "description": "The name of the country of citizenship of the user. Validate the user input against a list of countries and"
             },
             "name": {
                 "type": "string",
@@ -314,7 +444,7 @@ def main():
                 },
                 "address_in_japan": {
                     "type": "string",
-                    "description": "The address of the guarantor in Japan. Address in Japan are typically provided in the format: 〒123-4567 東京都千代田区丸の内1-1-1. The address can be in Japanese or English. Using the 〒 symbol is optional, but it is common in Japan. The address should include the postal code, prefecture, city, and street address."
+                    "description": "The address of the guarantor in Japan."
                 },
                 "guarantor_phone_number": {
                     "type": "string",
@@ -322,7 +452,7 @@ def main():
                 },
                 "place_of_employment": {
                     "type": "string",
-                    "description": "The place of employment of the guarantor. This can be a company, government office, university, research institution or other organization."
+                    "description": "The place of employment of the guarantor."
                 },
                 "occupation_phone_number": {
                     "type": "string",
@@ -355,7 +485,7 @@ def main():
     print("Bot:", chatbot.start_conversation())
     print()
     
-    # Simulation loop (replace with actual user input in production)
+    # Interactive mode
     is_complete = False
     while not is_complete:
         user_input = input("You: ")
