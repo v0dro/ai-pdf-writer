@@ -1,58 +1,15 @@
 from datetime import date
 import dateparser
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from pydantic.functional_validators import AfterValidator
-from typing import Annotated, Optional
-import ollama
-from openai import OpenAI
+from typing import  Optional
+from openai import OpenAI # needed only for API conformity for instructor.
 import instructor
-
-def validate_and_clean_date(input_date: str) -> date:
-    pass
-
-def validate_full_name(input_name: str) -> str:
-    pass
-
-def validate_nationality(input_nationality: str) -> str:
-    pass
-
-class GuarantorInfo(BaseModel):
-    name: str
-
-class LetterOfGuarantee(BaseModel):
-    date: Annotated[
-        Optional[str],
-        Field(description="Date on which this form is being filled up."),
-        AfterValidator(validate_and_clean_date)
-    ] = None
-
-    name: Annotated[
-        Optional[str],
-        Field(description="Full name of the person filling the form."),
-        AfterValidator(validate_full_name)
-    ] = None
-
-    nationality: Annotated[
-        Optional[str],
-        Field(description="Nationality of the person filling the form."),
-        AfterValidator(validate_nationality)
-    ] = None
 
 class ChatInfo(BaseModel):
     field: str = Field(description="The field that is captured from the chat.")
     is_valid: bool = Field(description="Whether this is valid.")
     error_message: Optional[str] = Field(description="Error message, if any.")
-
-@dataclass
-class FormFields:
-    form_date: date
-    full_name: str
-    nationality: str
-
-    def add_field(self, key, value):
-        if hasattr(self, key):
-            setattr(self, key, value)
 
 class ChatBot:
     def __init__(self):
@@ -82,6 +39,7 @@ class ChatBot:
             }
         }
         self.flat_fields = list(self.form_data.keys())
+        self.saved_info = dict()
         self.current_field_index = 0
 
     def start_conversation(self):
@@ -122,16 +80,27 @@ Validation rules of the user input: {field_data['validation_rule']}
         )
         
         if response.is_valid:
-            print(f"Thank you! The date has been saved as {response.field}. {dateparser.parse(response.field)}.")
+            valid_response = response.field
+
+            if current_field == "date":
+                valid_response = dateparser.parse(valid_response)
+            self.saved_info[current_field] = valid_response
+            self.current_field_index += 1
+
+            bot_reply = f"Thank you! The date has been saved as {response.field}."
+            next_field = self.flat_fields[self.current_field_index]
+
+            bot_reply += f"\n\nNext question. {self.form_data[next_field]['base_prompt']}"
         else:
-            print(f"""That did not work out quite well for the following reason:
+            bot_reply = f"""That did not work out quite well for the following reason:
+                  
 {response.error_message}
 
-Lets try again. {field_data['base_prompt']}""")
-        print(response)
+Lets try again. {field_data['base_prompt']}"""
+        
         is_complete = False
 
-        return response, is_complete
+        return bot_reply, is_complete
 
     def get_collected_data(self):
         pass
