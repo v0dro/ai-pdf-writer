@@ -25,7 +25,7 @@ class ChatBot:
             "date" : {
                 "base_prompt" : "What date do you want to put on this form?",
                 "description" : "Date for this form.",
-                "validation_rule" : "Should be a valid date in any format."
+                "validation_rule" : "Should be a valid date in any format.",
             },
             "full_name" : {
                 "base_prompt" : "What is your full name?",
@@ -47,12 +47,15 @@ class ChatBot:
                 "address_in_japan": {
                     "description": "The address of the guarantor in Japan.",
                     "base_prompt": "What is the address of your guarantor in Japan? Please provide the full address including postal code.",
-                    "validation_rule" : "The address should be a valid address in Japan in the format Postal Code, Prefecture, City, Street, Building Name (if applicable)."
+                    "validation_rule" : "The address should be a valid address in Japan in the format Postal Code, Prefecture, City, Building Name (if applicable)."
                 },
                 "guarantor_phone_number": {
                     "description": "The phone number of the guarantor in Japan.",
                     "base_prompt": "What is your guarantor's phone number in Japan?",
-                    "validation_rule" :"The phone number should be a valid Japanese phone number. It should start with a country code +81 or 0, followed by 9 to 11 digits."
+                    "validation_rule" :"""1. The phone number should be a valid Japanese phone number. It should start with a country code +81 or 0, followed by 9 to 11 digits.
+2. For 'field': Return the EXACT input with only formatting changes if needed (like adding hyphens)
+3. If you need to reformat, only add separators - NEVER change digits
+4. If the input is invalid, set is_valid to False but still preserve the original digits in 'field'"""
                 },
                 "place_of_employment": {
                     "description": "The place of employment of the guarantor.",
@@ -62,7 +65,10 @@ class ChatBot:
                 "occupation_phone_number": {
                     "description": "The phone number of the guarantor's place of employment.",
                     "base_prompt": "What is the phone number of your guarantor's place of employment?",
-                    "validation_rule" :"The phone number should be a valid Japanese phone number. It should start with a country code +81 or 0, followed by 9 to 11 digits."
+                    "validation_rule" :"""1. The phone number should be a valid Japanese phone number. It should start with a country code +81 or 0, followed by 9 to 11 digits.
+2. For 'field': Return the EXACT input with only formatting changes if needed (like adding hyphens)
+3. If you need to reformat, only add separators - NEVER change digits
+4. If the input is invalid, set is_valid to False but still preserve the original digits in 'field'"""
                 },
                 "nationality": {
                     "description": "The nationality of the guarantor.",
@@ -88,7 +94,7 @@ class ChatBot:
         }
         self.flat_fields = self._parse_form_fields("", self.form_data)
         self.saved_info = dict()
-        self.current_field_index = 2
+        self.current_field_index = 0
 
     def _parse_form_fields(self, prefix, form_dict):
         flat_fields = list()
@@ -123,7 +129,6 @@ class ChatBot:
         prompt = """Hello! I'm here to help you fill this form.
 
 Let's begin!"""
-        print(self.flat_fields)
         form_field = self._find_form_data(self.flat_fields[self.current_field_index])
         print(f"{prompt}\n\n{form_field['base_prompt']}")
 
@@ -146,8 +151,7 @@ Follow these instructions:
 3. The error message should be helpful, and assist the user in providing the proper input.
 
 Description of the user input: {field_data['description']}
-Validation rules of the user input: {field_data['validation_rule']}
-"""
+Validation rules of the user input: {field_data['validation_rule']}"""
                 },
                 {
                     "role" : "user",
@@ -169,16 +173,20 @@ Validation rules of the user input: {field_data['validation_rule']}
 
             bot_reply = f"Thank you! The data has been saved as {response.field}."
             if self.current_field_index < len(self.flat_fields):
+                # Skip the status of residence and period of stay if the guarantor is Japanese.
+                if current_field == "guarantor.nationality" and response.field != "Japanese":
+                    self.current_field_index += 2
+                    self.saved_info["guarantor"]["status_of_residence"] = "NA"
+                    self.saved_info["guarantor"]["period_of_stay"] = "NA"
+
                 next_field = self.flat_fields[self.current_field_index]
                 if "guarantor" in next_field and "guarantor" not in current_field:
                     bot_reply += "\n\nNow let's find out your Guarantor's data."
 
                 next_field_data = self._find_form_data(next_field)
-                print(f"n: {next_field} -- f: {next_field_data} -- res: {response}")
                 bot_reply += f"\n\nNext question. {next_field_data['base_prompt']}"
         else:
             bot_reply = f"""That did not work out quite well for the following reason:
-                  
 {response.error_message}
 
 Lets try again. {field_data['base_prompt']}"""
