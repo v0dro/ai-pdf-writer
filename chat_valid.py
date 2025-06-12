@@ -114,10 +114,9 @@ class ChatBot:
         store = self.saved_info
 
         for k in keys[:-1]:
-            if k in store:
-                store = store[k]
-            else:
-                store = dict()
+            if k not in store:
+                store[k] = dict()
+            store = store[k]
         store[keys[-1]] = value
 
     def start_conversation(self):
@@ -155,6 +154,7 @@ Validation rules of the user input: {field_data['validation_rule']}
                     "content" : f"{user_input}"
                 }
             ],
+            max_retries=5,
             response_model=ChatInfo
         )
         
@@ -168,13 +168,14 @@ Validation rules of the user input: {field_data['validation_rule']}
             self.current_field_index += 1
 
             bot_reply = f"Thank you! The data has been saved as {response.field}."
-            next_field = self.flat_fields[self.current_field_index]
-            if "guarantor" in next_field and "guarantor" not in current_field:
-                bot_reply += "\n\nNow let's find out your Guarantor's data.\n\n"
+            if self.current_field_index < len(self.flat_fields):
+                next_field = self.flat_fields[self.current_field_index]
+                if "guarantor" in next_field and "guarantor" not in current_field:
+                    bot_reply += "\n\nNow let's find out your Guarantor's data."
 
-            next_field_data = self._find_form_data(next_field)
-            print(f"n: {next_field} -- f: {next_field_data} -- res: {response}")
-            bot_reply += f"\n\nNext question. {next_field_data['base_prompt']}"
+                next_field_data = self._find_form_data(next_field)
+                print(f"n: {next_field} -- f: {next_field_data} -- res: {response}")
+                bot_reply += f"\n\nNext question. {next_field_data['base_prompt']}"
         else:
             bot_reply = f"""That did not work out quite well for the following reason:
                   
@@ -187,7 +188,7 @@ Lets try again. {field_data['base_prompt']}"""
         return bot_reply, is_complete
 
     def get_collected_data(self):
-        pass
+        return self.saved_info
 
 if __name__ == "__main__":
     chatbot = ChatBot()
