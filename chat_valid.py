@@ -1,6 +1,5 @@
-from datetime import date
+import phonenumbers
 import dateparser
-from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from typing import  Optional
 from openai import OpenAI # needed only for API conformity for instructor.
@@ -167,6 +166,10 @@ Validation rules of the user input: {field_data['validation_rule']}"""
 
             if current_field == "date":
                 valid_response = dateparser.parse(valid_response)
+            elif "phone_number" in current_field:
+                parsed_number = phonenumbers.parse(valid_response, "JP")
+                valid_response = phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+
             self._save_info(valid_response, current_field)
 
             self.current_field_index += 1
@@ -174,7 +177,7 @@ Validation rules of the user input: {field_data['validation_rule']}"""
             bot_reply = f"Thank you! The data has been saved as {response.field}."
             if self.current_field_index < len(self.flat_fields):
                 # Skip the status of residence and period of stay if the guarantor is Japanese.
-                if current_field == "guarantor.nationality" and response.field != "Japanese":
+                if current_field == "guarantor.nationality" and response.field == "Japan":
                     self.current_field_index += 2
                     self.saved_info["guarantor"]["status_of_residence"] = "NA"
                     self.saved_info["guarantor"]["period_of_stay"] = "NA"
