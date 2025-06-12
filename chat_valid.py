@@ -38,6 +38,7 @@ class ChatBot:
                 "validation_rule" : "Check against a list of countries if the input is a valid country."
             },
             "guarantor" : {
+                "nested" : True,
                 "name": {
                     "description": "The full name of the guarantor.",
                     "base_prompt": "Could you please provide the full name of your guarantor?",
@@ -87,14 +88,14 @@ class ChatBot:
         }
         self.flat_fields = self._parse_form_fields("", self.form_data)
         self.saved_info = dict()
-        self.current_field_index = 0
+        self.current_field_index = 2
 
     def _parse_form_fields(self, prefix, form_dict):
         flat_fields = list()
         for k, v in form_dict.items():
-            if isinstance(v, dict):
+            if isinstance(v, dict) and v.get('nested'):
                 flat_fields += self._parse_form_fields(f"{prefix}{k}.", form_dict[k])
-            else:
+            elif k != "nested":
                 flat_fields.append(prefix + k)
 
         return flat_fields
@@ -113,14 +114,18 @@ class ChatBot:
         store = self.saved_info
 
         for k in keys[:-1]:
-            store = store[k]
+            if k in store:
+                store = store[k]
+            else:
+                store = dict()
         store[keys[-1]] = value
 
     def start_conversation(self):
         prompt = """Hello! I'm here to help you fill this form.
 
 Let's begin!"""
-        form_field = self._find_form_data(self.flat_form_fields[self.current_field_index])
+        print(self.flat_fields)
+        form_field = self._find_form_data(self.flat_fields[self.current_field_index])
         print(f"{prompt}\n\n{form_field['base_prompt']}")
 
     def process_user_input(self, user_input):
@@ -139,13 +144,10 @@ Let's begin!"""
 Follow these instructions:
 1. Return only the extracted data in the 'field' of the response model. 
 2. If the user input is not valid, write a message in the 'error_message' of the response model, and set is_valid to False.
-3. Verifying the user input against the previously provided information under 'Context' below.
+3. The error message should be helpful, and assist the user in providing the proper input.
 
 Description of the user input: {field_data['description']}
 Validation rules of the user input: {field_data['validation_rule']}
-
-Context:
-{self.saved_info if self.saved_info else "No previous information provided."}
 """
                 },
                 {
@@ -165,12 +167,13 @@ Context:
 
             self.current_field_index += 1
 
-            bot_reply = f"Thank you! The date has been saved as {response.field}."
+            bot_reply = f"Thank you! The data has been saved as {response.field}."
             next_field = self.flat_fields[self.current_field_index]
             if "guarantor" in next_field and "guarantor" not in current_field:
                 bot_reply += "\n\nNow let's find out your Guarantor's data.\n\n"
 
             next_field_data = self._find_form_data(next_field)
+            print(f"n: {next_field} -- f: {next_field_data} -- res: {response}")
             bot_reply += f"\n\nNext question. {next_field_data['base_prompt']}"
         else:
             bot_reply = f"""That did not work out quite well for the following reason:
