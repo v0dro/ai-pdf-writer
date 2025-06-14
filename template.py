@@ -29,7 +29,6 @@ def combine_rectangles(loc, h, w):
             continue
 
         if x <= start_x + width:
-            print("x:", x, "y:", y, "start_x:", start_x, "width:", width)
             width += (x - prev_x)
         else:
             combined.append((start_y, start_x, h, width))
@@ -52,7 +51,6 @@ threshold = 0.9
 # y-coordinates and the columns indicate the x-coordinates.
 loc = np.where(res >= threshold)
 combined_rectangles = combine_rectangles(loc, h, w)
-print(combined_rectangles)
 
 for pt in combined_rectangles:  # Switch columns and rows
     #cv2.rectangle(img, (pt[1], pt[0]-12), (pt[1] + pt[3], pt[0] -12 + pt[2]), (0, 255, 0), 2)
@@ -61,7 +59,6 @@ for pt in combined_rectangles:  # Switch columns and rows
                 cv2.LINE_AA)
 h2, w2 = template2.shape[::-1]
 
-print("next template")
 res2 = cv2.matchTemplate(img, template2, cv2.TM_CCOEFF_NORMED)
 loc2 = np.where(res2 >= threshold)
 combined_rectangles = combine_rectangles(loc2, h, w2)
