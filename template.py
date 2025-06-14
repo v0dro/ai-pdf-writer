@@ -9,7 +9,7 @@ template2 = cv2.imread("dots2.png", cv2.IMREAD_GRAYSCALE)
 def combine_rectangles(loc, h, w):
     combined = []
     prev_x = 0
-    x =0
+    x = 0
     in_rect = False
     for pt in zip(*loc):
         if not in_rect:

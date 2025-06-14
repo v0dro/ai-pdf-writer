@@ -201,9 +201,8 @@ Lets try again. {field_data['base_prompt']}"""
     def get_collected_data(self):
         return self.saved_info
 
-if __name__ == "__main__":
+def letter_of_guarantee_chat():
     chatbot = ChatBot()
-
     chatbot.start_conversation()
 
     is_complete = False
@@ -213,4 +212,5 @@ if __name__ == "__main__":
         print("Bot: ", response)
 
     final_data = chatbot.get_collected_data()
-    print(final_data)
+    
+    return final_data
