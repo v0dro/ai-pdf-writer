@@ -212,5 +212,5 @@ def letter_of_guarantee_chat():
         print("Bot: ", response)
 
     final_data = chatbot.get_collected_data()
-    
+
     return final_data

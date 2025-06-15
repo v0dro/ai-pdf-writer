@@ -85,10 +85,14 @@ def find_form_blanks(png_path, write_image=False):
     combined_rectangles += _find_rectangles_for_blanks(img, template2, threshold, 15, 15)
 
     if write_image:
+        i = 0
         for pt in combined_rectangles:  # Switch columns and rows
             # cv2.rectangle(img, (pt[1], pt[0]), (pt[1] + pt[3], pt[0] + pt[2]), (0, 255, 0), 2)
-            cv2.putText(img, "$Blank$" , (pt[1], pt[0]), 
+            cv2.putText(img, f"{i}" , (pt[1], pt[0]), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, 
                         cv2.LINE_AA)
+            i+= 1
             
         cv2.imwrite(f"overlay_{png_path}", img)
+
+    return combined_rectangles

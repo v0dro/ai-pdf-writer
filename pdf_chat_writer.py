@@ -1,11 +1,45 @@
 from pdf_utils import download_letter_of_guarantee, \
     convert_pdf_to_png, find_form_blanks
 from ai_chat import letter_of_guarantee_chat
+import cv2
 
 if __name__ == "__main__":
     pdf_file = "letter_of_guarantee.pdf"
     png_file = "letter_of_guarantee.png"
     download_letter_of_guarantee(pdf_file)
     convert_pdf_to_png(pdf_file, png_file)
-    find_form_blanks(png_file)
+    form_rectangles = find_form_blanks(png_file, True)
     user_form_fields = letter_of_guarantee_chat()
+
+    form_fields_order = [
+        "full_name", # 0
+        "guarantor.address_in_japan", # 1
+        "guarantor.guarantor_phone_number", # 2
+        "guarantor.place_of_employment", # 3
+        "guarantor.occupation_phone_number", # 4
+        "guarantor.nationality", # 5
+        "guarantor.status_of_residence", # 6
+        "guarantor.guarantor_relationship", # 7
+        "date", # 8
+        "nationality", # 9
+        "guarantor.name", # 10
+        "guarantor.signature" # 11
+    ]
+
+    img = cv2.imread(png_file, cv2.IMREAD_GRAYSCALE)
+    for rectangle_index, field in enumerate(form_fields_order):
+        if "signature" in field:
+            continue
+        keys = field.split(".")
+        rectangle = form_fields_order[rectangle_index]
+        user_data = user_form_fields
+
+        for k in keys:
+            user_data = user_data[k]
+
+        pt = form_rectangles[rectangle_index]
+        cv2.putText(
+            img, user_data, (pt[1], pt[0]), 
+            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, cv2.LINE_AA)
+
+    cv2.imwrite(f"overlay_{png_file}", img)
