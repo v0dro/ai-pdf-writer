@@ -1,3 +1,20 @@
+"""
+pdf_chat_writer.py
+
+This script automates the process of filling out a letter of guarantee PDF form using conversational AI.
+It performs the following steps:
+1. Downloads the letter of guarantee PDF.
+2. Converts the PDF to a PNG image.
+3. Detects blank fields in the form image.
+4. Interacts with the user via a chatbot to collect required form data.
+5. Overlays the collected data onto the detected blank fields in the form image.
+6. Saves the resulting image with the overlaid data.
+
+Dependencies:
+- pdf_utils: For PDF download, conversion, and blank detection.
+- ai_chat: For conversational data collection.
+"""
+
 from pdf_utils import download_letter_of_guarantee, \
     convert_pdf_to_png, find_form_blanks
 from ai_chat import letter_of_guarantee_chat

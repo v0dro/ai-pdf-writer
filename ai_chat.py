@@ -6,11 +6,19 @@ from openai import OpenAI # needed only for API conformity for instructor.
 import instructor
 
 class ChatInfo(BaseModel):
+    """
+    Model to capture chat information.
+    """
     field: str = Field(description="The field that is captured from the chat.")
     is_valid: bool = Field(description="Whether this is valid.")
     error_message: Optional[str] = Field(description="Error message, if any.")
 
 class ChatBot:
+    """
+    A chatbot to help fill out a letter of guarantee form. 
+    Uses the Instructor API to validate and extract data from user input with a Llama 3.1-8b model.
+    It will ask questions one by one, validate the input, and save the data.
+    """
     def __init__(self):
         self.model_name = "llama3.1:8b"
         self.instructor_client = instructor.from_openai(
@@ -96,6 +104,16 @@ class ChatBot:
         self.current_field_index = 0
 
     def _parse_form_fields(self, prefix, form_dict):
+        """
+        Recursively flattens the form fields, including nested fields, into a list of dot-separated field names.
+
+        Args:
+            prefix (str): The prefix for nested fields.
+            form_dict (dict): The dictionary representing the form structure.
+
+        Returns:
+            list: A list of flattened field names.
+        """
         flat_fields = list()
         for k, v in form_dict.items():
             if isinstance(v, dict) and v.get('nested'):
@@ -106,6 +124,15 @@ class ChatBot:
         return flat_fields
 
     def _find_form_data(self, current_field):
+        """
+        Retrieves the form field metadata dictionary for a given dot-separated field name.
+
+        Args:
+            current_field (str): The dot-separated field name.
+
+        Returns:
+            dict: The metadata dictionary for the field.
+        """
         keys = current_field.split(".")
         form_dict = self.form_data
         
@@ -115,6 +142,13 @@ class ChatBot:
         return form_dict
     
     def _save_info(self, value, field_name):
+        """
+        Saves the validated value into the saved_info dictionary at the correct nested location.
+
+        Args:
+            value: The value to save.
+            field_name (str): The dot-separated field name.
+        """
         keys = field_name.split(".")
         store = self.saved_info
 
@@ -125,6 +159,9 @@ class ChatBot:
         store[keys[-1]] = value
 
     def start_conversation(self):
+        """
+        Starts the conversation with the user by printing the initial greeting and the first question.
+        """
         prompt = """Hello! I'm here to help you fill this form.
 
 Let's begin!"""
@@ -132,6 +169,15 @@ Let's begin!"""
         print(f"{prompt}\n\n{form_field['base_prompt']}")
 
     def process_user_input(self, user_input):
+        """
+        Processes the user's input for the current field, validates it, saves it if valid, and generates the next prompt.
+
+        Args:
+            user_input (str): The user's input.
+
+        Returns:
+            tuple: (bot_reply (str), is_complete (bool))
+        """
         # Validate the user input
         # If it is correct, save it and return is_completed=True with positive ack.
         # If not return False along with negative ack.
@@ -200,9 +246,21 @@ Lets try again. {field_data['base_prompt']}"""
         return bot_reply, is_complete
 
     def get_collected_data(self):
+        """
+        Returns the dictionary of all collected and validated form data.
+
+        Returns:
+            dict: The saved form data.
+        """
         return self.saved_info
 
 def letter_of_guarantee_chat():
+    """
+    Runs the interactive chat session for filling out the letter of guarantee form.
+
+    Returns:
+        dict: The final collected form data after completion.
+    """
     chatbot = ChatBot()
     chatbot.start_conversation()
 

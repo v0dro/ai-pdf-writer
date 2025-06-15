@@ -103,6 +103,16 @@ def _find_rectangles_for_blanks(img, template, threshold, x_adjust, y_adjust):
     return combined_rectangles
 
 def find_form_blanks(png_path, write_image=False):
+    """
+    Find the blanks in the form image by matching the template of the dotted
+    blanks with the blanks in the actual image and return boxes that combine
+    all the matched boxes for a given blank.
+    Args:
+        png_path: The path to the PNG image of the form.
+        write_image: If True, write the image with the rectangles drawn on it.
+    Returns:
+        A list of tuples (x, y, w, h) for each combined rectangle found.
+    """
     img = cv2.imread(png_path, cv2.IMREAD_GRAYSCALE)
     template = cv2.imread("dots.png", cv2.IMREAD_GRAYSCALE)
     template2 = cv2.imread("dots2.png", cv2.IMREAD_GRAYSCALE)
