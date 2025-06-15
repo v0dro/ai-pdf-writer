@@ -23,7 +23,15 @@ def convert_pdf_to_png(pdf_path, png_path):
 
     print(f"Converted {pdf_path} to PNG format and saved as {png_path}.")
 
-def _combine_rectangles(loc, h, w):
+def _combine_rectangles(loc, h):
+    """
+    Combine rectangles that are on the same row into a single rectangle.
+    Args:
+        loc: The locations of the rectangles as a tuple of two lists (y-coordinates, x-coordinates).
+        h: The height of the rectangles.
+    Returns:
+        A list of tuples (y, x, h, w) for each combined rectangle found.
+    """
     combined = []
     prev_x = 0
     x = 0
@@ -58,20 +66,39 @@ def _combine_rectangles(loc, h, w):
     return combined
 
 def _find_rectangles_for_blanks(img, template, threshold, x_adjust, y_adjust):
-    h, w = template.shape[::-1]
+    """
+    Match the template of the dotted blanks with the blanks in the actual image
+    and using matchTemplate() and return boxes that combine all the matched
+    boxes for a given blank.
+
+    Corresponsds to "2. Combine templates" in the diagram on the blog post.
+
+    Args:
+        img: The image to search in.
+        template: The template to match against.
+        threshold: The threshold for the matchTemplate() function.
+        x_adjust: The amount to adjust the x-coordinate of the rectangle.
+        y_adjust: The amount to adjust the y-coordinate of the rectangle.
+    Returns:
+        A list of tuples (x, y, w, h) for each combined rectangle found.
+    """
+    h, _ = template.shape[::-1]
 
     # The co-ordinate system of openCV says that the origin (0, 0) is at 
     # the top-left corner of the image. The x-coordinates increase to the
     # right, and the y-coordinates increase downwards.
+
+    # Corresponds to "1. Match template" in the diagram on the blog post.
     res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
 
     # Therefore, the locations here are a 2D array where the rows indicate the
     # y-coordinates and the columns indicate the x-coordinates.
     loc = np.where(res >= threshold)
-    combined_rectangles = _combine_rectangles(loc, h, w)
+    combined_rectangles = _combine_rectangles(loc, h)
 
     # Adjust the size of the rectangle.
-    combined_rectangles = list(map(lambda x: (x[0] + x_adjust, x[1] + y_adjust, x[2], x[3]), combined_rectangles))
+    combined_rectangles = list(map(lambda x: (x[0] + x_adjust, x[1] + y_adjust, x[2], x[3]), 
+                                   combined_rectangles))
 
     return combined_rectangles
 
