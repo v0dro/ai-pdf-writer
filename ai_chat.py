@@ -165,8 +165,9 @@ Validation rules of the user input: {field_data['validation_rule']}"""
             valid_response = response.field
 
             if current_field == "date":
-                valid_response = dateparser.parse(valid_response)
+                valid_response = dateparser.parse(valid_response).strftime("%Y-%m-%d")
             elif "phone_number" in current_field:
+                print(f"v_resp: {valid_response} cur: {current_field}")
                 parsed_number = phonenumbers.parse(valid_response, "JP")
                 valid_response = phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
 

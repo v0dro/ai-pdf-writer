@@ -11,6 +11,7 @@ if __name__ == "__main__":
     form_rectangles = find_form_blanks(png_file, True)
     user_form_fields = letter_of_guarantee_chat()
 
+    print(user_form_fields)
     form_fields_order = [
         "full_name", # 0
         "guarantor.address_in_japan", # 1
@@ -38,6 +39,8 @@ if __name__ == "__main__":
             user_data = user_data[k]
 
         pt = form_rectangles[rectangle_index]
+
+        print(user_data)
         cv2.putText(
             img, user_data, (pt[1], pt[0]), 
             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, cv2.LINE_AA)
