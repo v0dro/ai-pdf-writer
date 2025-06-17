@@ -21,8 +21,6 @@ def convert_pdf_to_png(pdf_path, png_path):
     images = convert_from_path(pdf_path)
     images[0].save(f"{png_path}", "PNG")
 
-    print(f"Converted {pdf_path} to PNG format and saved as {png_path}.")
-
 def _combine_rectangles(loc, h):
     """
     Combine rectangles that are on the same row into a single rectangle.

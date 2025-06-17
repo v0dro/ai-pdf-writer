@@ -42,7 +42,9 @@ class ChatBot:
             "nationality" : {
                 "base_prompt" : "What is your nationality?",
                 "description" : "Nationality of the person filling this form.",
-                "validation_rule" : "Check against a list of countries if the input is a valid country."
+                "validation_rule" : "Check against a list of countries if the input is a valid country. "
+                                    "Convert adjective to noun if needed, e.g. 'Japanese' to 'Japan', or 'American' to 'United States of America'. "
+                                    "The name of the country should be a valid name in English.",
             },
             "guarantor" : {
                 "nested" : True,
@@ -80,7 +82,9 @@ class ChatBot:
                 "nationality": {
                     "description": "The nationality of the guarantor.",
                     "base_prompt": "What is your guarantor's nationality?",
-                    "validation_rule" : "Check against a list of countries if the input is a valid country."
+                    "validation_rule" : "Check against a list of countries if the input is a valid country. "
+                                        "Convert adjective to noun if needed, e.g. 'Japanese' to 'Japan', or 'American' to 'United States of America'. "
+                                        "The name of the country should be a valid name in English.",
                 },
                 "status_of_residence": {
                     "description": "The status of residence of the guarantor.",
@@ -213,15 +217,19 @@ Validation rules of the user input: {field_data['validation_rule']}"""
             if current_field == "date":
                 valid_response = dateparser.parse(valid_response).strftime("%Y-%m-%d")
             elif "phone_number" in current_field:
-                print(f"v_resp: {valid_response} cur: {current_field}")
                 parsed_number = phonenumbers.parse(valid_response, "JP")
-                valid_response = phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+                if phonenumbers.is_valid_number(parsed_number):
+                    valid_response = f"+{parsed_number.country_code}-{parsed_number.national_number}"
+                else:
+                    response.is_valid = False
+                    response.error_message = f"The phone number provided {valid_response}, is not valid. Please provide a valid Japanese phone number."
+                    return f"That did not work out quite well for the following reason:\n{response.error_message}\n\nLets try again. {field_data['base_prompt']}", False
 
             self._save_info(valid_response, current_field)
 
             self.current_field_index += 1
 
-            bot_reply = f"Thank you! The data has been saved as {response.field}."
+            bot_reply = f"Thank you! The data has been saved as {valid_response}."
             if self.current_field_index < len(self.flat_fields):
                 # Skip the status of residence and period of stay if the guarantor is Japanese.
                 if current_field == "guarantor.nationality" and response.field == "Japan":
@@ -268,7 +276,7 @@ def letter_of_guarantee_chat():
     while not is_complete:
         user_input = input("You: ")
         response, is_complete = chatbot.process_user_input(user_input)
-        print("Bot: ", response)
+        print("Bot:", response)
 
     final_data = chatbot.get_collected_data()
 
