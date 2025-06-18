@@ -57,6 +57,8 @@ class ChatBot:
                     "description": "The address of the guarantor in Japan.",
                     "base_prompt": "What is the address of your guarantor in Japan? Please provide the full address including postal code.",
                     "validation_rule" : "The address should be a valid address in Japan in the format Postal Code, Prefecture, City, Building Name (if applicable)."
+                                        "Save the address in the format 'Postal Code, Prefecture, City, Building Name (if applicable)'."
+                                        "Do not use key-value pairs, just a single string."
                 },
                 "guarantor_phone_number": {
                     "description": "The phone number of the guarantor in Japan.",
@@ -218,7 +220,8 @@ Validation rules of the user input: {field_data['validation_rule']}"""
                 valid_response = dateparser.parse(valid_response).strftime("%Y-%m-%d")
             elif "phone_number" in current_field:
                 parsed_number = phonenumbers.parse(valid_response, "JP")
-                if phonenumbers.is_valid_number(parsed_number):
+                reason = phonenumbers.is_possible_number_with_reason(parsed_number)
+                if reason == phonenumbers.ValidationResult.IS_POSSIBLE:
                     valid_response = f"+{parsed_number.country_code}-{parsed_number.national_number}"
                 else:
                     response.is_valid = False

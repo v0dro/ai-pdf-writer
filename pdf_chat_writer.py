@@ -20,12 +20,48 @@ from pdf_utils import download_letter_of_guarantee, \
 from ai_chat import letter_of_guarantee_chat
 import cv2
 
+def fit_text_to_rectangle(image, text, rect_x, rect_y, rect_width, rect_height, 
+                         font=cv2.FONT_HERSHEY_SIMPLEX, thickness=1, 
+                         color=(0, 0, 0), margin=5):
+    """
+    Scale text to fit within a given rectangle and draw it on the image.
+    
+    Args:
+        image: Input image (numpy array)
+        text: Text string to draw
+        rect_x, rect_y: Top-left corner of rectangle
+        rect_width, rect_height: Dimensions of rectangle
+        font: OpenCV font type
+        thickness: Text thickness
+        color: Text color (BGR tuple)
+        margin: Margin inside rectangle (pixels)
+        
+    Returns:
+        Modified image with text drawn
+        Final font scale used
+    """
+    
+    # Start with a reasonable font scale
+    font_scale = 1.0
+    
+    # Get text size with current scale
+    (text_w, _), _ = cv2.getTextSize(text, font, font_scale, thickness)
+
+    while rect_width < text_w:
+        font_scale -= 0.01
+        (text_w, _), _ = cv2.getTextSize(text, font, font_scale, thickness)
+    
+    cv2.putText(image, text, (rect_x, rect_y), 
+                font, font_scale, color, 2)
+    
+    return image, font_scale
+
 if __name__ == "__main__":
     pdf_file = "letter_of_guarantee.pdf"
     png_file = "letter_of_guarantee.png"
     download_letter_of_guarantee(pdf_file)
     convert_pdf_to_png(pdf_file, png_file)
-    form_rectangles = find_form_blanks(png_file, True)
+    form_rectangles = find_form_blanks(png_file, False)
     user_form_fields = letter_of_guarantee_chat()
 
     form_fields_order = [
@@ -56,8 +92,6 @@ if __name__ == "__main__":
 
         pt = form_rectangles[rectangle_index]
 
-        cv2.putText(
-            img, user_data, (pt[1], pt[0]), 
-            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0),  2, cv2.LINE_AA)
+        img, _ = fit_text_to_rectangle(img, user_data, pt[1], pt[0], pt[3], pt[2])
 
-    cv2.imwrite(f"overlay_{png_file}", img)
+    cv2.imwrite(f"overlay.png", img)
