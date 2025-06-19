@@ -21,8 +21,7 @@ from ai_chat import letter_of_guarantee_chat
 import cv2
 
 def fit_text_to_rectangle(image, text, rect_x, rect_y, rect_width, rect_height, 
-                         font=cv2.FONT_HERSHEY_SIMPLEX, thickness=1, 
-                         color=(0, 0, 0), margin=5):
+                         font=cv2.FONT_HERSHEY_SIMPLEX, thickness=1):
     """
     Scale text to fit within a given rectangle and draw it on the image.
     
@@ -33,8 +32,6 @@ def fit_text_to_rectangle(image, text, rect_x, rect_y, rect_width, rect_height,
         rect_width, rect_height: Dimensions of rectangle
         font: OpenCV font type
         thickness: Text thickness
-        color: Text color (BGR tuple)
-        margin: Margin inside rectangle (pixels)
         
     Returns:
         Modified image with text drawn
@@ -52,7 +49,7 @@ def fit_text_to_rectangle(image, text, rect_x, rect_y, rect_width, rect_height,
         (text_w, _), _ = cv2.getTextSize(text, font, font_scale, thickness)
     
     cv2.putText(image, text, (rect_x, rect_y), 
-                font, font_scale, color, 2)
+                font, font_scale, (0,0,0), 2)
     
     return image, font_scale
 

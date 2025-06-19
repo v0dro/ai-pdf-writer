@@ -220,8 +220,7 @@ Validation rules of the user input: {field_data['validation_rule']}"""
                 valid_response = dateparser.parse(valid_response).strftime("%Y-%m-%d")
             elif "phone_number" in current_field:
                 parsed_number = phonenumbers.parse(valid_response, "JP")
-                reason = phonenumbers.is_possible_number_with_reason(parsed_number)
-                if reason == phonenumbers.ValidationResult.IS_POSSIBLE:
+                if phonenumbers.is_valid_number(parsed_number):
                     valid_response = f"+{parsed_number.country_code}-{parsed_number.national_number}"
                 else:
                     response.is_valid = False
