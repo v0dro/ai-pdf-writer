@@ -57,7 +57,7 @@ class ChatBot:
                     "description": "The address of the guarantor in Japan.",
                     "base_prompt": "What is the address of your guarantor in Japan? Please provide the full address including postal code.",
                     "validation_rule" : "The address should be a valid address in Japan in the format Postal Code, Prefecture, City, Building Name (if applicable)."
-                                        "Save the address in the format 'Postal Code, Prefecture, City, Building Name (if applicable)'."
+                                        "Save the address in the format 'Postal Code, Prefecture, City, Building Name (if applicable)'. Do not make any changes to core elements of the address, such as postal code, prefecture, city, or building name."
                                         "Do not use key-value pairs, just a single string."
                 },
                 "guarantor_phone_number": {
